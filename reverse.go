@@ -11,3 +11,7 @@ func Reverse(s []int) []int {
 
 	return a
 }
+
+func NotReverse(s []int) []int {
+	return s
+}
