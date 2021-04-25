@@ -41,12 +41,34 @@ func (h *handler) run(input *bufio.Reader, output io.WriteCloser) {
 			return
 		}
 
+		if !strings.HasSuffix(line, "\n") {
+			log.Print("Invalid line.")
+			return
+		}
+
+		line = line[:len(line)-1]
+
+		if strings.Contains(line, "\n") {
+			fmt.Fprint(output, "-ERR Invalid command.\n")
+			continue
+		}
+
 		parts := strings.Split(line, " ")
 		switch parts[0] {
 		case "PING":
+			if len(parts) != 1 {
+				fmt.Fprintf(output, "-ERR 1\n")
+				continue
+			}
+
 			fmt.Fprint(output, "+PONG\n")
 
 		case "GET":
+			if len(parts) != 2 {
+				fmt.Fprintf(output, "-ERR 2\n")
+				continue
+			}
+
 			o, err := h.kv.Get(kv.Key(parts[1]))
 			if err != nil {
 				if err == kv.ErrNotFound {
@@ -61,6 +83,11 @@ func (h *handler) run(input *bufio.Reader, output io.WriteCloser) {
 			fmt.Fprintf(output, "$%d\n%s\n", len(o.Value), o.Value)
 
 		case "SET":
+			if len(parts) != 3 {
+				fmt.Fprintf(output, "-ERR 3\n")
+				continue
+			}
+
 			o, err := h.kv.Get(kv.Key(parts[1]))
 			if err == kv.ErrNotFound {
 				err = nil

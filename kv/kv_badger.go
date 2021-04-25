@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"hash/maphash"
+	"sync"
 
 	badger "github.com/dgraph-io/badger/v3"
 )
@@ -11,8 +12,9 @@ import (
 const cacheSize = 3000
 
 type badgerKV struct {
-	db       *badger.DB
-	h        maphash.Hash
+	db *badger.DB
+
+	m        sync.Mutex
 	genCache map[uint16]uint64
 }
 
@@ -26,9 +28,9 @@ func NewInMemoryBadgerKV() (KV, error) {
 }
 
 func (kv *badgerKV) computeCacheKey(k []byte) uint16 {
-	kv.h.Reset()
-	kv.h.Write(k)
-	return uint16(kv.h.Sum64()) % cacheSize
+	var h maphash.Hash
+	h.Write(k)
+	return uint16(h.Sum64()) % cacheSize
 }
 
 func (kv *badgerKV) Get(k Key) (*Object, error) {
@@ -54,7 +56,9 @@ func (kv *badgerKV) Get(k Key) (*Object, error) {
 		return nil, err
 	}
 
+	kv.m.Lock()
 	kv.genCache[kv.computeCacheKey(k)] = obj.Gen
+	kv.m.Unlock()
 	return &obj, nil
 }
 
@@ -66,6 +70,10 @@ func (kv *badgerKV) Set(k Key, o *Object) error {
 	defer tx.Discard()
 
 	cacheKey := kv.computeCacheKey(k)
+
+	kv.m.Lock()
+	defer kv.m.Unlock()
+
 	if cachedGen, ok := kv.genCache[cacheKey]; ok {
 		if cachedGen > o.Gen {
 			return ErrOldGen

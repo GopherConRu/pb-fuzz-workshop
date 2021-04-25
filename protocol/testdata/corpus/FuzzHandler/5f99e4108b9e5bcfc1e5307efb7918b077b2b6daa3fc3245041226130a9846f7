@@ -1,0 +1,2 @@
+go test fuzz v1
+string("\nGET myKey\nSET mEKey\nGET\nGET myK\xb3y\nPIN-\nSh fooyKey\nGET\nGET myKey muOtierKey\nPING foo\n")
