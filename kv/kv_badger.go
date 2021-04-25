@@ -11,11 +11,17 @@ import (
 
 const cacheSize = 3000
 
+type cachedGenPair struct {
+	gen uint64
+	key []byte
+}
+
 type badgerKV struct {
 	db *badger.DB
 
+	seed     maphash.Seed
 	m        sync.Mutex
-	genCache map[uint16]uint64
+	genCache map[uint16]cachedGenPair
 }
 
 func NewInMemoryBadgerKV() (KV, error) {
@@ -24,11 +30,12 @@ func NewInMemoryBadgerKV() (KV, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &badgerKV{db: db, genCache: make(map[uint16]uint64)}, err
+	return &badgerKV{db: db, seed: maphash.MakeSeed(), genCache: make(map[uint16]cachedGenPair)}, err
 }
 
 func (kv *badgerKV) computeCacheKey(k []byte) uint16 {
 	var h maphash.Hash
+	h.SetSeed(kv.seed)
 	h.Write(k)
 	return uint16(h.Sum64()) % cacheSize
 }
@@ -57,7 +64,7 @@ func (kv *badgerKV) Get(k Key) (*Object, error) {
 	}
 
 	kv.m.Lock()
-	kv.genCache[kv.computeCacheKey(k)] = obj.Gen
+	kv.genCache[kv.computeCacheKey(k)] = cachedGenPair{gen: obj.Gen, key: k}
 	kv.m.Unlock()
 	return &obj, nil
 }
@@ -75,7 +82,7 @@ func (kv *badgerKV) Set(k Key, o *Object) error {
 	defer kv.m.Unlock()
 
 	if cachedGen, ok := kv.genCache[cacheKey]; ok {
-		if cachedGen > o.Gen {
+		if cachedGen.gen > o.Gen && bytes.Equal(cachedGen.key, k) {
 			return ErrOldGen
 		}
 	} else {
@@ -88,6 +95,9 @@ func (kv *badgerKV) Set(k Key, o *Object) error {
 				if decodeError != nil {
 					return decodeError
 				}
+				if oldObj.Gen > o.Gen {
+					return ErrOldGen
+				}
 				return nil
 			})
 			if err != nil {
@@ -98,8 +108,11 @@ func (kv *badgerKV) Set(k Key, o *Object) error {
 		}
 	}
 
-	o.Gen += 1
-	err := enc.Encode(&o)
+	newObj := Object{
+		Value: o.Value,
+		Gen:   o.Gen + 1,
+	}
+	err := enc.Encode(&newObj)
 	if err != nil {
 		panic(err)
 	}
@@ -108,8 +121,8 @@ func (kv *badgerKV) Set(k Key, o *Object) error {
 	if err != nil {
 		return err
 	}
+	kv.genCache[cacheKey] = cachedGenPair{gen: newObj.Gen, key: k}
 
-	kv.genCache[cacheKey] = o.Gen
 	return tx.Commit()
 }
 

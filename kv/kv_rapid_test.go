@@ -83,7 +83,21 @@ func (m *kvMachine) InitKey(t *rapid.T) {
 	require.NoError(t, err)
 
 	// Model upd
+	initVal.Gen += 1
 	m.mapKv[k] = initVal
+}
+
+func (m *kvMachine) Conflict(t *rapid.T) {
+	byteK, k := genKey(m, t)
+
+	// pre condition
+	if _, ok := m.mapKv[k]; !ok {
+		t.SkipNow()
+	}
+
+	obj := Object{Value: []byte("@")}
+	err := m.kv.Set(byteK, &obj)
+	require.Equal(t, ErrOldGen, err)
 }
 
 func (m *kvMachine) Get(t *rapid.T) {
