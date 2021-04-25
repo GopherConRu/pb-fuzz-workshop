@@ -1,6 +1,10 @@
 package pb_fuzz_workshop
 
 func Reverse(s []int) []int {
+	if s == nil {
+		return nil
+	}
+
 	a := make([]int, len(s))
 	copy(a, s)
 

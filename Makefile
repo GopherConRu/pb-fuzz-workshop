@@ -7,6 +7,9 @@ help:                        ## Display this help message.
 	@grep '^[a-zA-Z]' $(MAKEFILE_LIST) | \
 		awk -F ':.*?## ' 'NF==2 {printf "  %-20s%s\n", $$1, $$2}'
 
+docker:
+	docker run -it -v $(PWD):/workshop -w /workshop ghcr.io/aleksi/golang-tip:dev.fuzz /bin/bash
+
 init:                        ## Install tools.
 	go generate -x -tags=tools ./tools
 	make build
