@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -75,7 +76,10 @@ func FuzzHandler(f *testing.F) {
 			assert.NoError(t, err)
 
 			if !bytes.HasSuffix(b, []byte("+PONG\n")) {
-				assert.Fail(t, "too bad")
+				msg := fmt.Sprintf("Input: %q\n", cmds)
+				msg += fmt.Sprintf("Output: %q", strings.Split(string(b), "\n"))
+				msg += hex.Dump(b)
+				assert.Fail(t, msg)
 			}
 		}()
 
