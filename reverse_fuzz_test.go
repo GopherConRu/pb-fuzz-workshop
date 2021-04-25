@@ -2,6 +2,7 @@ package pb_fuzz_workshop
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,6 +13,7 @@ func FuzzReverse(f *testing.F) {
 		nil,
 		{},
 		{1},
+		{1, 1},
 		{1, 2},
 		{1, 2, 3},
 	} {
@@ -26,6 +28,10 @@ func FuzzReverse(f *testing.F) {
 		var s []int
 		if err := json.Unmarshal(b, &s); err != nil {
 			t.Skip(err)
+		}
+
+		if reflect.DeepEqual(Reverse(s), s) {
+			t.Skip()
 		}
 
 		require.Equal(t, s, Reverse(Reverse(s)))
