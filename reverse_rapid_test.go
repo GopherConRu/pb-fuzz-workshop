@@ -31,3 +31,19 @@ func TestReverse(t *testing.T) {
 		}
 	})
 }
+
+func TestReverseGen(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := rapid.SliceOf(rapid.Int()).Filter(func(_s []int) bool {
+			return len(_s) > 0
+		}).Draw(t, "slice").([]int)
+		i := rapid.IntRange(0, len(s)-1).Draw(t, "pos").(int)
+
+		orig := make([]int, len(s))
+		require.Equal(t, len(s), copy(orig, s))
+
+		reversed := Reverse(s)
+
+		require.Equal(t, orig[i], reversed[len(orig)-1-i])
+	})
+}
